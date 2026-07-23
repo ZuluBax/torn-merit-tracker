@@ -564,12 +564,15 @@ export function showMeritStatusBox(
 
   switch (displayMode) {
     case DISPLAY_MODES.TOP3:
-      // Top 3 by progress
+      // Top 3 by progress (always show top 3)
       displayMerits = incompleteMerits.slice(0, 3);
       break;
     case DISPLAY_MODES.SELECTED:
-      // User-selected merits only
+      // User-selected merits only, or default to top 3 if none selected
       displayMerits = incompleteMerits.filter(m => selectedMerits.includes(m.name));
+      if (displayMerits.length === 0) {
+        displayMerits = incompleteMerits.slice(0, 3);
+      }
       break;
     case DISPLAY_MODES.ALL:
       // All incomplete merits (limited to 5 for display)
@@ -579,15 +582,6 @@ export function showMeritStatusBox(
 
   // Sort by remaining (lowest first) for display
   displayMerits.sort((a, b) => a.remaining - b.remaining);
-
-  if (displayMerits.length === 0 && displayMode !== DISPLAY_MODES.SELECTED) {
-    // Show message if no merits to display
-    displayMerits = incompleteMerits.slice(0, 3);
-  }
-
-  if (displayMerits.length === 0) {
-    // Still create the box but show empty state
-  }
 
   statusBox = document.createElement('div');
   statusBox.id = 'torn-merits-status-box';
@@ -1080,7 +1074,7 @@ export function showSettingsPanel(
               <div class="t-m-settings-radio"></div>
               <div class="t-m-settings-option-text">
                 <div class="t-m-settings-option-title">Top 3</div>
-                <div class="t-m-settings-option-desc">Show your 3 closest merits to completion</div>
+                <div class="t-m-settings-option-desc">Always show your top 3 closest merits</div>
               </div>
             </label>
             <label class="t-m-settings-option ${currentMode === DISPLAY_MODES.SELECTED ? 'selected' : ''}" data-mode="${DISPLAY_MODES.SELECTED}">

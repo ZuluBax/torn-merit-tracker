@@ -4,6 +4,15 @@ All notable changes to Torn Merits Tracker will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.1] - 2026-07-23
+
+### Fixed
+- "Top 3" mode now always shows top 3 merits regardless of progress
+- "Selected" mode now defaults to top 3 if no merits are selected
+- Updated settings description for "Top 3" to clarify it always shows merits
+
+---
+
 ## [1.4.0] - 2026-07-23
 
 ### Added

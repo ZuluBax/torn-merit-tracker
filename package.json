@@ -1,6 +1,6 @@
 {
   "name": "torn-merits",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Tampermonkey script to warn about near-completed merits in Torn.com",
   "type": "module",
   "scripts": {

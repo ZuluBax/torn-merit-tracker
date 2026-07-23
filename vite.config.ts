@@ -8,7 +8,7 @@ export default defineConfig({
       userscript: {
         name: 'Torn Merits Tracker',
         namespace: 'https://github.com/torn-merits',
-        version: '1.4.0',
+        version: '1.4.1',
         description: 'Track and warn about near-completed merits in Torn.com',
         author: 'Torn Player',
         match: ['*://*.torn.com/*'],
