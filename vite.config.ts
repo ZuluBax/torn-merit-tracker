@@ -8,7 +8,7 @@ export default defineConfig({
       userscript: {
         name: 'Torn Honors & Medals Tracker',
         namespace: 'https://github.com/torn-merits',
-        version: '4.0.3',
+        version: '4.0.4',
         description: 'Track your honors and medals progress in Torn.com',
         author: 'Torn Player',
         match: ['*://*.torn.com/*'],

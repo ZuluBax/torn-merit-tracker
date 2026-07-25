@@ -179,10 +179,14 @@ function formatNum(n: number): string {
 function renderProgressItem(h: HonorProgress | MedalProgress, type: 'honor' | 'medal'): string {
   const barClass = h.progress >= 80 ? 'high' : 'normal';
   const color = type === 'honor' ? TORN.honor : TORN.medal;
+  const wikiUrl = type === 'honor' ? 'https://wiki.torn.com/wiki/Honors' : 'https://wiki.torn.com/wiki/Medals';
   return `
     <div class="t-item">
       <div class="t-item-row">
-        <span class="t-item-name" style="border-left: 3px solid ${color}; padding-left: 8px;">${h.name}${h.isNear ? ' <small style="color: ${TORN.warning}; background: transparent;">NEAR</small>' : ''}</span>
+        <span class="t-item-name" style="border-left: 3px solid ${color}; padding-left: 8px;">
+          <a href="${wikiUrl}" target="_blank" rel="noopener noreferrer" class="t-wiki-link">${h.name} <span class="t-wiki-icon">&#8599;</span></a>
+          ${h.isNear ? ' <small style="color: ${TORN.warning}; background: transparent;">NEAR</small>' : ''}
+        </span>
         <span class="t-item-nums">
           <span class="t-item-current">${formatNum(h.current)}</span><span class="t-item-target">/${formatNum(h.target)}</span>
         </span>
@@ -270,6 +274,9 @@ export function showStatusBox(
       .t-item:hover { background: ${TORN.bgLight}; }
       .t-item-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
       .t-item-name { font-size: 13px; color: ${TORN.textPrimary}; }
+      .t-item-name a { color: ${TORN.textPrimary}; text-decoration: underline; cursor: pointer; }
+      .t-item-name a:hover { color: ${TORN.accent}; }
+      .t-wiki-icon { font-size: 10px; opacity: 0.6; margin-left: 4px; }
       .t-item-nums { font-size: 12px; font-family: 'Courier New', monospace; }
       .t-item-current { color: ${TORN.textSecondary}; }
       .t-item-target { color: ${TORN.textMuted}; }
