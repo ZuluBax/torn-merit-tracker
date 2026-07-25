@@ -25,6 +25,22 @@ let setupDragOffset = { x: 0, y: 0 };
 let settingsDragging = false;
 let settingsDragOffset = { x: 0, y: 0 };
 
+// Close all UI panels
+export function closeAllPanels(): void {
+  if (statusBox) {
+    statusBox.remove();
+    statusBox = null;
+  }
+  if (settingsPanel) {
+    settingsPanel.remove();
+    settingsPanel = null;
+  }
+  const setupBox = document.getElementById('torn-tracker-setup');
+  if (setupBox) {
+    setupBox.remove();
+  }
+}
+
 export function showSetupPrompt(onSubmit: (apiKey: string) => void): void {
   const existing = document.getElementById('torn-tracker-setup');
   if (existing) existing.remove();
@@ -508,6 +524,17 @@ export function showSettingsPanel(
           <div class="t-btns">
             ${[3, 5, 10, 25, 50, 100, 9999].map(v => '<button class="t-btn-toggle' + (medalsShowCount === v ? ' active' : '') + '" data-medals-count="' + v + '">' + (v === 9999 ? 'All' : v) + '</button>').join('')}
           </div>
+        </div>
+      </div>
+      <div class="t-section">
+        <div class="t-section-label">Support</div>
+        <div style="background: ${TORN.bgDark}; border: 1px solid ${TORN.border}; border-radius: 4px; padding: 16px; text-align: center;">
+          <div style="color: ${TORN.textSecondary}; font-size: 13px; margin-bottom: 12px; line-height: 1.5;">
+            Donations are not required but do help add new features to the script!
+          </div>
+          <a href="https://ko-fi.com/lordzulu" target="_blank" rel="noopener noreferrer" class="t-btn t-btn-primary" style="text-decoration: none; display: inline-block;">
+            Donations/Tips
+          </a>
         </div>
       </div>
     </div>

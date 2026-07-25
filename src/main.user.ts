@@ -14,7 +14,7 @@
 
 import { checkHonorsAndMedals } from './merits';
 import type { HonorStatus, MedalStatus } from './merits';
-import { showStatusBox, showSettingsPanel, showSetupPrompt } from './ui';
+import { showStatusBox, showSettingsPanel, showSetupPrompt, closeAllPanels } from './ui';
 
 const STORAGE_KEY = 'torn_api_key';
 const DISMISS_KEY = 'torn_setup_dismissed';
@@ -85,3 +85,28 @@ async function checkNow(apiKey: string): Promise<void> {
 }
 
 main();
+
+// Close UI when leaving Torn.com
+function setupDomainChecker(): void {
+  // Check if still on Torn.com
+  const isOnTorn = window.location.hostname.endsWith('.torn.com') || window.location.hostname === 'torn.com';
+
+  if (!isOnTorn) {
+    closeAllPanels();
+    return;
+  }
+
+  // Set up visibility change listener
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      closeAllPanels();
+    }
+  });
+
+  // Set up beforeunload to close when navigating away
+  window.addEventListener('beforeunload', () => {
+    closeAllPanels();
+  });
+}
+
+setupDomainChecker();
