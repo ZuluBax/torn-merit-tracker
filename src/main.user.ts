@@ -1,94 +1,87 @@
 // ==UserScript==
-// @name         Torn Merits Tracker
+// @name         Torn Honors & Medals Tracker
 // @namespace    https://github.com/torn-merits
-// @version      1.4.1
-// @description  Track and warn about near-completed merits in Torn.com
+// @version      4.0.3
+// @description  Track your honors and medals progress in Torn.com
 // @author       Torn Player
 // @match        *://*.torn.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
 // @grant        GM_xmlhttpRequest
 // @license      MIT
 // ==/UserScript==
 
-import { getApiKey } from './api';
-import { Merit, MeritStatus, MeritWithStatus, checkMerits } from './merits';
-import { showMeritPanel, showMeritStatusBox, showSettingsPanel, showSetupPrompt } from './ui';
+import { checkHonorsAndMedals } from './merits';
+import type { HonorStatus, MedalStatus } from './merits';
+import { showStatusBox, showSettingsPanel, showSetupPrompt } from './ui';
 
-const STORAGE_KEYS = {
-  API_KEY: 'torn_api_key',
-  SELECTED_MERITS: 'torn_selected_merits',
-  DISPLAY_MODE: 'torn_display_mode',
-};
-
-const CHECK_INTERVAL = 60000; // 1 minute
-const NEAR_COMPLETION_THRESHOLD = 5; // Warn when within 5 of completion
-
-// Display modes
-export const DISPLAY_MODES = {
-  TOP3: 'top3',           // Top 3 by progress
-  SELECTED: 'selected',   // User-selected merits only
-  ALL_INCOMPLETE: 'all',  // All incomplete merits
-};
+const STORAGE_KEY = 'torn_api_key';
+const DISMISS_KEY = 'torn_setup_dismissed';
+const DISMISS_DURATION = 60000; // 60 seconds
+const CHECK_INTERVAL = 60000;
 
 async function main(): Promise<void> {
-  let apiKey = GM_getValue<string>(STORAGE_KEYS.API_KEY, '');
+  let apiKey = GM_getValue<string>(STORAGE_KEY, '');
 
   if (!apiKey) {
+    // Check if dismissed recently
+    const dismissedAt = GM_getValue<number>(DISMISS_KEY, 0);
+    const now = Date.now();
+
+    if (dismissedAt > 0 && now - dismissedAt < DISMISS_DURATION) {
+      // Still within dismiss period, wait for remaining time
+      const remainingTime = DISMISS_DURATION - (now - dismissedAt);
+      console.log('[Torn Honors] Setup dismissed, showing in', Math.round(remainingTime / 1000), 'seconds');
+      setTimeout(() => {
+        showSetupPrompt((key: string) => {
+          GM_setValue(STORAGE_KEY, key);
+          GM_deleteValue(DISMISS_KEY);
+          checkNow(key);
+        });
+      }, remainingTime);
+      return;
+    }
+
+    // Show setup prompt
     showSetupPrompt((key: string) => {
-      GM_setValue(STORAGE_KEYS.API_KEY, key);
-      apiKey = key;
-      checkMeritsNow(apiKey);
+      GM_setValue(STORAGE_KEY, key);
+      GM_deleteValue(DISMISS_KEY);
+      checkNow(apiKey);
     });
     return;
   }
 
-  await checkMeritsNow(apiKey);
-
-  // Periodically check merits
-  setInterval(() => checkMeritsNow(apiKey), CHECK_INTERVAL);
+  await checkNow(apiKey);
+  setInterval(() => checkNow(apiKey), CHECK_INTERVAL);
 }
 
-async function checkMeritsNow(apiKey: string): Promise<void> {
+async function checkNow(apiKey: string): Promise<void> {
   try {
-    const result = await checkMerits(apiKey, NEAR_COMPLETION_THRESHOLD);
-
-    if (result.error) {
-      console.error('Torn Merits: Error checking merits', result.error);
+    const result = await checkHonorsAndMedals(apiKey);
+    if (!result) {
+      console.error('Torn Honors & Medals: Error checking data');
       return;
     }
 
-    console.log('[Torn Merits] Received merit data:', result);
+    console.log('[Torn Honors & Medals] Data:', result);
 
-    // Get saved preferences
-    const displayMode = GM_getValue<string>(STORAGE_KEYS.DISPLAY_MODE, DISPLAY_MODES.TOP3);
-    const selectedMerits = GM_getValue<string[]>(STORAGE_KEYS.SELECTED_MERITS, []);
-
-    // Create settings callback function
     const openSettings = () => {
-      showSettingsPanel(result.allMerits, (mode: string, selected: string[]) => {
-        // Save new settings
-        GM_setValue(STORAGE_KEYS.DISPLAY_MODE, mode);
-        GM_setValue(STORAGE_KEYS.SELECTED_MERITS, selected);
-        console.log('[Torn Merits] Settings saved:', { mode, selected });
-        // Redraw status box with new settings
-        showMeritStatusBox(result.allMerits, mode, selected, openSettings);
+      showSettingsPanel(result.honorStatus, result.medalStatus, () => {
+        showStatusBox(result.honorStatus, result.medalStatus, openSettings);
       }, () => {
-        // Change API key callback
-        GM_setValue(STORAGE_KEYS.API_KEY, '');
+        GM_setValue(STORAGE_KEY, '');
         showSetupPrompt((key: string) => {
-          GM_setValue(STORAGE_KEYS.API_KEY, key);
-          checkMeritsNow(key);
+          GM_setValue(STORAGE_KEY, key);
+          checkNow(key);
         });
       });
     };
 
-    // Show status box with settings callback
-    showMeritStatusBox(result.allMerits, displayMode, selectedMerits, openSettings);
+    showStatusBox(result.honorStatus, result.medalStatus, openSettings);
   } catch (err) {
-    console.error('Torn Merits: Exception checking merits:', err);
+    console.error('Torn Honors & Medals: Exception:', err);
   }
 }
 
-// Start the script
 main();

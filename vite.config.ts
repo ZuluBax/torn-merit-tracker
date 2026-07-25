@@ -6,17 +6,17 @@ export default defineConfig({
     monkey({
       entry: 'src/main.user.ts',
       userscript: {
-        name: 'Torn Merits Tracker',
+        name: 'Torn Honors & Medals Tracker',
         namespace: 'https://github.com/torn-merits',
-        version: '1.4.1',
-        description: 'Track and warn about near-completed merits in Torn.com',
+        version: '4.0.3',
+        description: 'Track your honors and medals progress in Torn.com',
         author: 'Torn Player',
         match: ['*://*.torn.com/*'],
-        grant: ['GM_getValue', 'GM_setValue', 'GM_xmlhttpRequest'],
+        grant: ['GM_getValue', 'GM_setValue', 'GM_deleteValue', 'GM_xmlhttpRequest'],
         license: 'MIT',
       },
       build: {
-        outFileName: 'torn-merits.user.js',
+        outFileName: 'torn-honors-medals-tracker.user.js',
       },
     }),
   ],

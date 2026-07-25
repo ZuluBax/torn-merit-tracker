@@ -1,4 +1,5 @@
 const API_BASE = 'https://api.torn.com';
+const API_V2_BASE = 'https://api.torn.com/v2';
 
 export interface ApiResponse<T> {
   data?: T;
@@ -21,11 +22,15 @@ interface TornApiError {
 }
 
 export async function fetchFromApi<T>(endpoint: string, apiKey: string, selections?: string[]): Promise<ApiResponse<T>> {
-  return new Promise((resolve) => {
-    let url = `${API_BASE}${endpoint}?key=${apiKey}`;
+  const isV2 = endpoint.startsWith('/v2/');
+  const base = isV2 ? API_V2_BASE : API_BASE;
+  let path = endpoint.startsWith('/v2') ? endpoint.replace('/v2', '') : endpoint;
+  const hasQueryParams = path.includes('?');
 
-    // Add selections if provided
-    if (selections && selections.length > 0) {
+  return new Promise((resolve) => {
+    let url = `${base}${path}${hasQueryParams ? '&' : '?'}key=${apiKey}`;
+
+    if (selections && selections.length > 0 && !path.includes('selections=')) {
       url += `&selections=${selections.join(',')}`;
     }
 
@@ -36,10 +41,9 @@ export async function fetchFromApi<T>(endpoint: string, apiKey: string, selectio
         try {
           const data = JSON.parse(response.responseText);
 
-          // Check for API errors
           if ('error' in data) {
             const apiError = data as TornApiError;
-            console.error('[Torn Merits] API Error:', apiError.error);
+            console.error('[Torn API] Error:', apiError.error.error);
             resolve({ error: apiError.error.error });
             return;
           }
@@ -54,4 +58,28 @@ export async function fetchFromApi<T>(endpoint: string, apiKey: string, selectio
       },
     });
   });
+}
+
+// Medal name cache
+let medalNamesCache: Record<number, string> | null = null;
+
+export async function fetchMedalNames(apiKey: string): Promise<Record<number, string>> {
+  if (medalNamesCache) return medalNamesCache;
+
+  const resp = await fetchFromApi<Record<string, { name?: string }>>('/torn/medals', apiKey);
+  const data = resp.data || {};
+
+  medalNamesCache = {};
+  for (const [idStr, medal] of Object.entries(data)) {
+    const id = parseInt(idStr);
+    if (!isNaN(id) && medal.name) {
+      medalNamesCache[id] = medal.name;
+    }
+  }
+
+  return medalNamesCache;
+}
+
+export function clearMedalNamesCache(): void {
+  medalNamesCache = null;
 }
