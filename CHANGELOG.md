@@ -4,6 +4,29 @@ All notable changes to Torn Honors & Medals Tracker will be documented in this f
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [4.2.0] - 2026-09-19
+
+### Added
+- **Move the minimised tab to any screen edge** - press and drag the tab and it snaps to the
+  nearest side (left, right, top or bottom) and slides along that side. Its position is
+  remembered. A plain click (no drag) still expands the box; the arrow on the tab points the
+  way the box will open.
+
+## [4.1.0] - 2026-09-19
+
+### Added
+- **Minimise to side tab** - a `–` button in the header collapses the box into a slim, faded
+  "HM" tab on the right edge of the screen (at the box's current height). Click the tab to
+  expand again. The choice is remembered across refreshes and page loads.
+
+### Fixed
+- Clicking a header button no longer starts a drag (which could save a bogus position).
+- Entering an API key from the first-run prompt now uses the new key immediately.
+
+> Note: entries for 3.3.0 – 4.0.5 were never written; this file was behind the real version.
+
+---
+
 ## [3.2.0] - 2026-07-24
 
 ### Added

@@ -25,3 +25,6 @@ npm-debug.log*
 # Cache
 .cache/
 *.tsbuildinfo
+
+# Local AI-tool state
+.claude-flow/

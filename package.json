@@ -1,6 +1,6 @@
 {
   "name": "torn-honors-medals-tracker",
-  "version": "4.0.4",
+  "version": "4.2.0",
   "description": "Tampermonkey script to track honors and medals progress in Torn.com",
   "type": "module",
   "scripts": {

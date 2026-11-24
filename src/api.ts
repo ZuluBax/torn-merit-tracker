@@ -59,27 +59,3 @@ export async function fetchFromApi<T>(endpoint: string, apiKey: string, selectio
     });
   });
 }
-
-// Medal name cache
-let medalNamesCache: Record<number, string> | null = null;
-
-export async function fetchMedalNames(apiKey: string): Promise<Record<number, string>> {
-  if (medalNamesCache) return medalNamesCache;
-
-  const resp = await fetchFromApi<Record<string, { name?: string }>>('/torn/medals', apiKey);
-  const data = resp.data || {};
-
-  medalNamesCache = {};
-  for (const [idStr, medal] of Object.entries(data)) {
-    const id = parseInt(idStr);
-    if (!isNaN(id) && medal.name) {
-      medalNamesCache[id] = medal.name;
-    }
-  }
-
-  return medalNamesCache;
-}
-
-export function clearMedalNamesCache(): void {
-  medalNamesCache = null;
-}

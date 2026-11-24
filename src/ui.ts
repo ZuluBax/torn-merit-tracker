@@ -15,6 +15,93 @@ const TORN = {
   medal: '#d4a574',
 };
 
+// Stored (not just in-memory) because the status box is torn down and rebuilt on every
+// data refresh and page load; without this it would pop back open each minute.
+const MINIMISED_KEY = 'torn_minimised';
+
+type DockEdge = 'left' | 'right' | 'top' | 'bottom';
+interface Dock { edge: DockEdge; pos: number } // pos = px along the edge (top for left/right, left for top/bottom)
+const DOCK_EDGES: DockEdge[] = ['left', 'right', 'top', 'bottom'];
+const DOCK_EDGE_KEY = 'torn_dock_edge';
+const DOCK_POS_KEY = 'torn_dock_pos';
+// Below this a press-and-release is a click (expand), not a drag (move the tab).
+const DRAG_THRESHOLD_PX = 5;
+
+// Module-level so a rebuild of the box mid-drag (the 1-minute refresh) keeps the live position.
+let dock: Dock | null = null;
+
+function loadDock(): Dock {
+  if (dock) return dock;
+  const edge = GM_getValue<string>(DOCK_EDGE_KEY, 'right');
+  const pos = GM_getValue<number>(DOCK_POS_KEY, -1);
+  // Before docking existed the tab sat on the right at the box's saved height; keep it there.
+  const legacyTop = GM_getValue<number>('torn_box_top', -1);
+  dock = {
+    edge: (DOCK_EDGES as string[]).includes(edge) ? (edge as DockEdge) : 'right',
+    pos: Number.isFinite(pos) && pos >= 0 ? pos : legacyTop >= 0 ? legacyTop : 100,
+  };
+  return dock;
+}
+
+function applyDock(box: HTMLElement, d: Dock): void {
+  DOCK_EDGES.forEach(e => box.classList.toggle('t-dock-' + e, e === d.edge));
+  box.style.setProperty('--t-pos', d.pos + 'px');
+}
+
+// Click the tab to expand; press-and-drag it and it snaps to whichever screen edge is nearest.
+function enableTabDocking(tab: HTMLElement, box: HTMLElement, onActivate: () => void): void {
+  let start: { x: number; y: number } | null = null;
+  let moved = false;
+  let swallowClick = false; // the click the browser fires right after a drag must not expand the box
+
+  tab.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    start = { x: e.clientX, y: e.clientY };
+    moved = false;
+    swallowClick = false;
+    tab.setPointerCapture(e.pointerId);
+  });
+
+  tab.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < DRAG_THRESHOLD_PX) return;
+    moved = true;
+    box.classList.add('t-dragging');
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap: Record<DockEdge, number> = { left: e.clientX, right: vw - e.clientX, top: e.clientY, bottom: vh - e.clientY };
+    const d = loadDock();
+    d.edge = DOCK_EDGES.reduce((a, b) => (gap[b] < gap[a] ? b : a));
+    applyDock(box, d); // switch orientation first: the tab's length along the edge depends on it
+
+    const rect = box.getBoundingClientRect();
+    const vertical = d.edge === 'left' || d.edge === 'right';
+    const length = vertical ? rect.height : rect.width;
+    const room = (vertical ? vh : vw) - length;
+    d.pos = Math.min(Math.max(0, (vertical ? e.clientY : e.clientX) - length / 2), Math.max(0, room));
+    applyDock(box, d);
+  });
+
+  const finish = () => {
+    if (!start) return;
+    start = null;
+    box.classList.remove('t-dragging');
+    if (!moved) return;
+    swallowClick = true;
+    const d = loadDock();
+    GM_setValue(DOCK_EDGE_KEY, d.edge);
+    GM_setValue(DOCK_POS_KEY, Math.round(d.pos));
+  };
+  tab.addEventListener('pointerup', finish);
+  tab.addEventListener('pointercancel', finish);
+
+  tab.addEventListener('click', () => {
+    if (swallowClick) { swallowClick = false; return; }
+    onActivate();
+  });
+}
+
 let statusBox: HTMLElement | null = null;
 let settingsPanel: HTMLElement | null = null;
 let isDragging = false;
@@ -231,6 +318,9 @@ export function showStatusBox(
 
   statusBox = document.createElement('div');
   statusBox.id = 'torn-status-box';
+  // Set before insertion so a minimised box never flashes open on refresh.
+  if (GM_getValue<boolean>(MINIMISED_KEY, false)) statusBox.classList.add('t-minimised');
+  applyDock(statusBox, loadDock());
   statusBox.innerHTML = `
     <style>
       #torn-status-box {
@@ -297,7 +387,7 @@ export function showStatusBox(
       .t-item-current { color: ${TORN.textSecondary}; }
       .t-item-target { color: ${TORN.textMuted}; }
       .t-bar { height: 6px; background: ${TORN.bgDark}; border-radius: 3px; overflow: hidden; }
-      .t-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+      .t-bar-fill { height: 100%; border-radius: 3px; }
       .t-bar-fill.high { background: ${TORN.warning}; }
       .t-bar-fill.normal { background: ${TORN.honor}; }
       .t-item-remain { font-size: 10px; color: ${TORN.textMuted}; margin-top: 4px; }
@@ -306,6 +396,56 @@ export function showStatusBox(
       .t-body::-webkit-scrollbar-thumb { background: ${TORN.border}; border-radius: 4px; }
       .t-tab-content { display: none; }
       .t-tab-content.active { display: block; }
+      .t-min-tab { display: none; }
+      /* Minimised: a slim, faded tab docked to one screen edge. --t-pos is its offset along
+         that edge; min() keeps it on-screen if the window is later made smaller. */
+      #torn-status-box.t-minimised {
+        max-height: none; opacity: 0.45; animation: none; transition: opacity 0.2s;
+      }
+      #torn-status-box.t-minimised:hover,
+      #torn-status-box.t-minimised:focus-within,
+      #torn-status-box.t-minimised.t-dragging { opacity: 1; }
+      #torn-status-box.t-minimised > :not(.t-min-tab) { display: none; }
+      #torn-status-box.t-minimised .t-min-tab {
+        display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px;
+        background: ${TORN.bgLight}; border: none; color: ${TORN.accent}; cursor: grab;
+        font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        font-family: inherit; touch-action: none; user-select: none;
+      }
+      #torn-status-box.t-dragging .t-min-tab { cursor: grabbing; }
+      /* The arrow points the way the box will open, i.e. away from the docked edge. */
+      #torn-status-box.t-minimised .t-min-tab::after { content: '\\25C0'; }
+      #torn-status-box.t-minimised.t-dock-left .t-min-tab::after { content: '\\25B6'; }
+      #torn-status-box.t-minimised.t-dock-top .t-min-tab::after { content: '\\25BC'; }
+      #torn-status-box.t-minimised.t-dock-bottom .t-min-tab::after { content: '\\25B2'; }
+
+      #torn-status-box.t-minimised.t-dock-right {
+        left: auto !important; right: 0 !important; bottom: auto !important;
+        top: min(var(--t-pos), calc(100vh - 72px)) !important;
+        width: 28px; border-right: none; border-radius: 6px 0 0 6px;
+      }
+      #torn-status-box.t-minimised.t-dock-left {
+        left: 0 !important; right: auto !important; bottom: auto !important;
+        top: min(var(--t-pos), calc(100vh - 72px)) !important;
+        width: 28px; border-left: none; border-radius: 0 6px 6px 0;
+      }
+      #torn-status-box.t-minimised.t-dock-top {
+        top: 0 !important; bottom: auto !important; right: auto !important;
+        left: min(var(--t-pos), calc(100vw - 72px)) !important;
+        width: auto; height: 28px; border-top: none; border-radius: 0 0 6px 6px;
+      }
+      #torn-status-box.t-minimised.t-dock-bottom {
+        bottom: 0 !important; top: auto !important; right: auto !important;
+        left: min(var(--t-pos), calc(100vw - 72px)) !important;
+        width: auto; height: 28px; border-bottom: none; border-radius: 6px 6px 0 0;
+      }
+      #torn-status-box.t-minimised.t-dock-left .t-min-tab,
+      #torn-status-box.t-minimised.t-dock-right .t-min-tab { writing-mode: vertical-rl; padding: 12px 0; }
+      #torn-status-box.t-minimised.t-dock-top .t-min-tab,
+      #torn-status-box.t-minimised.t-dock-bottom .t-min-tab { padding: 0 12px; }
+      @media (prefers-reduced-motion: reduce) {
+        #torn-status-box.t-minimised { transition: none; }
+      }
     </style>
     <div class="t-header">
       <div class="t-header-left">
@@ -313,6 +453,7 @@ export function showStatusBox(
         <span class="t-header-title">Honors & Medals</span>
       </div>
       <div>
+        <button class="t-header-btn" id="t-minimise" title="Minimise" aria-label="Minimise to side tab">&#8211;</button>
         <button class="t-header-btn" id="t-settings">&#9881;</button>
         <button class="t-header-btn" id="t-close">x</button>
       </div>
@@ -347,9 +488,18 @@ export function showStatusBox(
         ${displayMedals.length > 0 ? displayMedals.map(m => renderProgressItem(m, 'medal')).join('') : '<div style="padding: 20px; text-align: center; color: ' + TORN.textMuted + '">No medals in progress</div>'}
       </div>
     </div>
+    <button class="t-min-tab" title="Click to open, drag to move" aria-label="Expand Honors and Medals tracker (drag to move to another screen edge)">HM</button>
   `;
 
   document.body.appendChild(statusBox);
+
+  const setMinimised = (minimised: boolean) => {
+    GM_setValue(MINIMISED_KEY, minimised);
+    statusBox?.classList.toggle('t-minimised', minimised);
+  };
+  document.getElementById('t-minimise')?.addEventListener('click', () => setMinimised(true));
+  const minTab = statusBox.querySelector('.t-min-tab') as HTMLElement | null;
+  if (minTab) enableTabDocking(minTab, statusBox, () => setMinimised(false));
 
   document.getElementById('t-close')?.addEventListener('click', () => { statusBox?.remove(); statusBox = null; });
   document.getElementById('t-settings')?.addEventListener('click', () => { if (onOpenSettings) onOpenSettings(); });
@@ -394,6 +544,8 @@ export function showStatusBox(
   const header = statusBox.querySelector('.t-header') as HTMLElement;
   if (header) {
     header.addEventListener('mousedown', (e) => {
+      // Clicking a header button must not start a drag (mouseup would then save a bogus position).
+      if ((e.target as HTMLElement).closest('button')) return;
       isDragging = true;
       const rect = statusBox!.getBoundingClientRect();
       dragOffset.x = e.clientX - rect.left;

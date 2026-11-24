@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn Honors & Medals Tracker
 // @namespace    https://github.com/torn-merits
-// @version      4.0.4
+// @version      4.2.0
 // @description  Track your honors and medals progress in Torn.com
 // @author       Torn Player
 // @match        *://*.torn.com/*
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     showSetupPrompt((key: string) => {
       GM_setValue(STORAGE_KEY, key);
       GM_deleteValue(DISMISS_KEY);
-      checkNow(apiKey);
+      checkNow(key);
     });
     return;
   }
